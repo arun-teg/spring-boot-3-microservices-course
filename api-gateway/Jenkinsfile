@@ -16,9 +16,31 @@ pipeline {
     }
 
     stages {
+        stage('Restore Cache') {
+            steps {
+                sh '''
+                    if [ -d /home/jenkins/cache/api-gateway-target ]; then
+                        echo "Restoring cached build output..."
+                        mkdir -p api-gateway/target
+                        cp -r /home/jenkins/cache/api-gateway-target/* api-gateway/target/ || true
+                    fi
+                '''
+            }
+        }
+
         stage('Build API Gateway') {
             steps {
                 sh 'mvn clean package -DskipTests -pl api-gateway -am -DdockerPassword=unused -T 1C'
+            }
+        }
+
+        stage('Save Cache') {
+            steps {
+                sh '''
+                    echo "Saving build output to cache..."
+                    mkdir -p /home/jenkins/cache/api-gateway-target
+                    cp -r api-gateway/target/* /home/jenkins/cache/api-gateway-target/ || true
+                '''
             }
         }
 
@@ -31,7 +53,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 dir('api-gateway') {
-                    sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER} ."
+                    sh "docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest || true"
+                    sh "docker build --cache-from ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER} ."
                     sh "docker tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
                 }
             }
