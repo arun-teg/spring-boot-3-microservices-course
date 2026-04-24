@@ -11,16 +11,9 @@ pipeline {
     environment {
         DOCKER_REGISTRY = 'docker.io'
         DOCKER_IMAGE    = 'arun-teg/api-gateway'
-        GIT_REPO        = 'https://github.com/arun-teg/spring-boot-3-microservices-course.git'
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: "${GIT_REPO}"
-            }
-        }
-
         stage('Build API Gateway') {
             steps {
                 dir('api-gateway') {
