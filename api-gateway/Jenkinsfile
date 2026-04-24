@@ -4,19 +4,21 @@ pipeline {
     }
 
     tools {
-        maven 'maven3'
+        maven 'maven-3.9'
         jdk 'JDK21'
     }
 
     environment {
         DOCKER_REGISTRY = 'docker.io'
         DOCKER_IMAGE    = 'arun-teg/api-gateway'
+        DOCKER_HOST     = 'tcp://localhost:2375'
+        MAVEN_OPTS      = '-Dmaven.repo.local=/home/jenkins/cache/.m2/repository'
     }
 
     stages {
         stage('Build API Gateway') {
             steps {
-                sh 'mvn clean package -DskipTests -pl api-gateway -am -DdockerPassword=unused'
+                sh 'mvn clean package -DskipTests -pl api-gateway -am -DdockerPassword=unused -T 1C'
             }
         }
 
@@ -38,7 +40,7 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh "echo ${DOCKER_PASS} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_USER} --password-stdin"
+                    sh "echo \${DOCKER_PASS} | docker login ${DOCKER_REGISTRY} -u \${DOCKER_USER} --password-stdin"
                     sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER}"
                     sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
                 }
