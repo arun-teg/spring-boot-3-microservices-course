@@ -16,17 +16,13 @@ pipeline {
     stages {
         stage('Build API Gateway') {
             steps {
-                dir('api-gateway') {
-                    sh 'mvn clean package -DskipTests'
-                }
+                sh 'mvn clean package -DskipTests -pl api-gateway -am -DdockerPassword=unused'
             }
         }
 
         stage('Run Tests') {
             steps {
-                dir('api-gateway') {
-                    sh 'mvn test'
-                }
+                sh 'mvn test -pl api-gateway -DdockerPassword=unused'
             }
         }
 
