@@ -1,0 +1,87 @@
+pipeline {
+    agent {
+        label 'build-agent'
+    }
+
+    tools {
+        maven 'maven-3.9'
+        jdk 'JDK21'
+    }
+
+    environment {
+        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_IMAGE    = 'arunr039/api-gateway'
+        DOCKER_HOST     = 'tcp://localhost:2375'
+        MAVEN_OPTS      = '-Dmaven.repo.local=/home/jenkins/cache/.m2/repository'
+    }
+
+    stages {
+        stage('Restore Cache') {
+            steps {
+                sh '''
+                    if [ -d /home/jenkins/cache/api-gateway-target ]; then
+                        echo "Restoring cached build output..."
+                        mkdir -p api-gateway/target
+                        cp -r /home/jenkins/cache/api-gateway-target/* api-gateway/target/ || true
+                    fi
+                '''
+            }
+        }
+
+        stage('Build API Gateway') {
+            steps {
+                sh 'mvn package -DskipTests -pl api-gateway -am -DdockerPassword=unused -T 1C'
+            }
+        }
+
+        stage('Save Cache') {
+            steps {
+                sh '''
+                    echo "Saving build output to cache..."
+                    mkdir -p /home/jenkins/cache/api-gateway-target
+                    cp -r api-gateway/target/* /home/jenkins/cache/api-gateway-target/ || true
+                '''
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'mvn test -pl api-gateway -DdockerPassword=unused'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('api-gateway') {
+                    sh "docker pull ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest || true"
+                    sh "docker build --cache-from ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER} ."
+                    sh "docker tag ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo \${DOCKER_PASS} | docker login ${DOCKER_REGISTRY} -u \${DOCKER_USER} --password-stdin"
+                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${BUILD_NUMBER} || true"
+            sh "docker rmi ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:latest || true"
+            cleanWs()
+        }
+        success {
+            echo 'API Gateway build and push completed successfully!'
+        }
+        failure {
+            echo 'API Gateway build failed!'
+        }
+    }
+}
