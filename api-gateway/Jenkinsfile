@@ -15,32 +15,10 @@ pipeline {
         MAVEN_OPTS      = '-Dmaven.repo.local=/home/jenkins/cache/.m2/repository'
     }
 
-    stages {
-        stage('Restore Cache') {
-            steps {
-                sh '''
-                    if [ -d /home/jenkins/cache/api-gateway-target ]; then
-                        echo "Restoring cached build output..."
-                        mkdir -p api-gateway/target
-                        cp -r /home/jenkins/cache/api-gateway-target/* api-gateway/target/ || true
-                    fi
-                '''
-            }
-        }
 
         stage('Build API Gateway') {
             steps {
                 sh 'mvn clean package -DskipTests -pl api-gateway -am -DdockerPassword=unused -T 1C'
-            }
-        }
-
-        stage('Save Cache') {
-            steps {
-                sh '''
-                    echo "Saving build output to cache..."
-                    mkdir -p /home/jenkins/cache/api-gateway-target
-                    cp -r api-gateway/target/* /home/jenkins/cache/api-gateway-target/ || true
-                '''
             }
         }
 
