@@ -5,7 +5,7 @@ pipeline {
 
     tools {
         maven 'maven-3.9'
-        jdk 'JDK21'
+        jdk 'jdk-21'
     }
 
     environment {
@@ -15,10 +15,17 @@ pipeline {
         MAVEN_OPTS      = '-Dmaven.repo.local=/home/jenkins/cache/.m2/repository'
     }
 
+    stages {
+        stage('Checkout Source') {
+            steps {
+                deleteDir()
+                git branch: 'main', url: 'https://github.com/SaiUpadhyayula/spring-boot-3-microservices-course.git'
+            }
+        }
 
         stage('Build API Gateway') {
             steps {
-                sh 'mvn clean package -DskipTests -pl api-gateway -am -DdockerPassword=unused -T 1C'
+                sh 'mvn package -DskipTests -pl api-gateway -am -DdockerPassword=unused -T 1C'
             }
         }
 
